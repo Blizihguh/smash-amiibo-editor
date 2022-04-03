@@ -1,16 +1,29 @@
 import region_parse as parse
 import PySimpleGUI as sg
-from virtual_amiibo_file import VirtualAmiiboFile, JSONVirtualAmiiboFile, InvalidAmiiboDump, AmiiboHMACTagError, AmiiboHMACDataError
+from virtual_amiibo_file import VirtualAmiiboFile, JSONVirtualAmiiboFile, InvalidAmiiboDump, AmiiboHMACTagError, AmiiboHMACDataError, cli
 from updater import Updater
 from config import Config
 import os
 from tkinter import filedialog
 import webbrowser
 import template
+import personality
 from copy import deepcopy
 import base64
 import json
 
+
+def get_personality(dump):
+        dump.data = cli.amiitools_to_dump(dump.data)
+        if dump.data[0x1BC:0x1F6] != bytes.fromhex("00" * 0x3a):
+            params = personality.decode_behavior_params(dump)
+            actual_personality = personality.calculate_personality_from_data(params)
+            dump.data = cli.dump_to_amiitools(dump.data)
+
+            return actual_personality
+        else:
+            dump.data = cli.dump_to_amiitools(dump.data)
+            return "Normal"
 
 def get_menu_def(update_available: bool, amiibo_loaded: bool, ryujinx: bool = False):
     """
@@ -190,7 +203,7 @@ def main():
 
                 for section in sections:
                     section.update(event, window, amiibo, None)
-                window["PERSONALITY"].update(f"The amiibo's personality is: {amiibo.get_personality()}")
+                window["PERSONALITY"].update(f"The amiibo's personality is: {get_personality(amiibo.dump)}")
                 # update menu to include save options
                 if ryujinx_loaded is not True:
                     window[0].update(get_menu_def(updatePopUp, True))
@@ -380,7 +393,7 @@ def main():
                     if event in section.get_keys():
                         section.update(event, window, amiibo, values[event])
                 if amiibo is not None:
-                    window["PERSONALITY"].update(f"The amiibo's personality is: {amiibo.get_personality()}")
+                    window["PERSONALITY"].update(f"The amiibo's personality is: {get_personality(amiibo.dump)}")
             except KeyError:
                 pass
 
